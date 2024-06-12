@@ -83,4 +83,19 @@ if __name__ == '__main__':
         db['locations'].insert_all(ordered_locations, 
                                    foreign_keys=[['category', 'categories', 'id']])
         
-    db["locations"].enable_fts(['location', 'category'])
+    db.execute("""
+               CREATE VIRTUAL TABLE "locations_fts" USING FTS5 (
+                    location,
+                    category,
+                    content="locations"
+                );
+               """)
+    
+    db.execute("""
+               INSERT INTO "locations_fts" (rowid, location, category)
+                SELECT locations.rowid,
+                    locations.location,
+                    categories.label
+                    FROM locations JOIN categories ON locations.category=categories.id;
+               """)
+    
