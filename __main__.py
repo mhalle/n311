@@ -71,18 +71,16 @@ if __name__ == '__main__':
     
     for category in categories:
         locations = list(get_locations(category['id']))
+        ordered_locations = []
         for el in locations:
-            el['category_id'] = category['id']
-            el['ward'] = get_ward(el['longitude'], el['latitude'], precinct_info)
-        db['_locations'].insert_all(locations, foreign_keys=[['category_id', 'categories', 'id']])
-
-    db.execute("""
-                   create table locations as select 
-                   location, 
-                   ward,
-                   category_id as category, 
-                   latitude, longitude
-                   from _locations
-                          """)
-    db['locations'].add_foreign_key('category', 'categories', 'id')
+            ordered_locations.append({
+                'location': el['location'],
+                'ward': get_ward(el['longitude'], el['latitude'], precinct_info),
+                'category': category['id'],
+                'latitude': el['latitude'],
+                'longitude': el['longitude']
+            })
+        db['locations'].insert_all(ordered_locations, 
+                                   foreign_keys=[['category', 'categories', 'id']])
+        
     db["locations"].enable_fts(['location', 'category'])
