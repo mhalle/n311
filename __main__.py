@@ -84,7 +84,7 @@ if __name__ == '__main__':
                                    foreign_keys=[['category', 'categories', 'id']])
         
     db.execute("""
-               CREATE VIRTUAL TABLE "locations_fts" USING FTS5 (
+               CREATE VIRTUAL TABLE "locations_fts" USING FTS4 (
                     location,
                     category,
                     content="locations"
