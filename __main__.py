@@ -82,6 +82,7 @@ if __name__ == '__main__':
                    ward,
                    category_id as category, 
                    latitude, longitude
+                   from _location
                           """)
     db['locations'].add_foreign_key('category_id', 'categories', 'id')
     db["locations"].enable_fts(['location', 'category'])
