@@ -65,7 +65,7 @@ def get_locations(id):
 
 if __name__ == '__main__':
     precinct_info = get_precincts()
-    db = sqlite_utils.Database(sys.argv[1])
+    db = sqlite_utils.Database(sys.argv[1], recreate=True)
     categories = get_all_categories()
     db['categories'].insert_all(categories, pk='id')
     
