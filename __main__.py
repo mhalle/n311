@@ -80,11 +80,8 @@ if __name__ == '__main__':
                    create table locations as select 
                    location, 
                    ward,
-                   label as category,
-                   category_id, 
-                   latitude, longitude 
-                   from _locations join categories
-                   on category_id = id
+                   category_id as category, 
+                   latitude, longitude
                           """)
     db['locations'].add_foreign_key('category_id', 'categories', 'id')
     db["locations"].enable_fts(['location', 'category'])
