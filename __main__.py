@@ -71,31 +71,20 @@ if __name__ == '__main__':
     
     for category in categories:
         locations = list(get_locations(category['id']))
-        ordered_locations = []
         for el in locations:
-            ordered_locations.append({
-                'location': el['location'],
-                'ward': get_ward(el['longitude'], el['latitude'], precinct_info),
-                'category': category['id'],
-                'latitude': el['latitude'],
-                'longitude': el['longitude']
-            })
-        db['locations'].insert_all(ordered_locations, 
-                                   foreign_keys=[['category', 'categories', 'id']])
-        
+            el['category_id'] = category['id']
+            el['ward'] = get_ward(el['longitude'], el['latitude'], precinct_info)
+        db['_locations'].insert_all(locations, foreign_keys=[['category_id', 'categories', 'id']])
+
     db.execute("""
-               CREATE VIRTUAL TABLE "locations_fts" USING FTS4 (
-                    location,
-                    category,
-                    content="locations"
-                );
-               """)
-    
-    db.execute("""
-               INSERT INTO "locations_fts" (rowid, location, category)
-                SELECT locations.rowid,
-                    locations.location,
-                    categories.label
-                    FROM locations JOIN categories ON locations.category=categories.id;
-               """)
-    
+                   create table locations as select 
+                   location, 
+                   ward,
+                   label as category,
+                   category_id, 
+                   latitude, longitude 
+                   from _locations join categories
+                   on category_id = id
+                          """)
+    db['locations'].add_foreign_key('category_id', 'categories', 'id')
+    db["locations"].enable_fts(['location', 'category'])
