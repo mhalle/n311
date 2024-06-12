@@ -84,5 +84,5 @@ if __name__ == '__main__':
                    latitude, longitude
                    from _locations
                           """)
-    db['locations'].add_foreign_key('category_id', 'categories', 'id')
+    db['locations'].add_foreign_key('category', 'categories', 'id')
     db["locations"].enable_fts(['location', 'category'])
