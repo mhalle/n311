@@ -85,7 +85,7 @@ if __name__ == '__main__':
             el['location'] = ' '.join(el['location'].upper().split()) # clean up location
             el['category_id'] = category['id']
             el['ward'] = get_ward(el['longitude'], el['latitude'], precinct_info)
-            el['added'] = get_today()
+            el['added'] = ""
             el['removed'] = ""
             el['active'] = 1
 
@@ -102,6 +102,9 @@ if __name__ == '__main__':
             removed_keys = set(current_locations_index.keys()) - set(new_locations_index.keys())
 
             added_locations = [v for k,v in new_locations_index.items() if k in added_keys]
+            for el in added_locations:
+                el['added'] = get_today()
+
             removed_locations = [v for k,v in current_locations_index.items() if k in removed_keys]
             for loc in removed_locations:
                 loc['removed'] = get_today()
@@ -111,6 +114,7 @@ if __name__ == '__main__':
             db['_locations'].upsert_all(removed_locations, pk='rowid')
 
         else:
+            # new database
             db['_locations'].insert_all(locations, foreign_keys=[['category_id', 'categories', 'id']])
 
     db['locations'].drop(ignore=True)
