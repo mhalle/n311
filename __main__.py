@@ -6,8 +6,6 @@ import shapely.geometry
 import sqlite_utils
 import shapely
 from datetime import datetime
-import sqlite3
-
 
 def get_today():
     return datetime.today().strftime('%Y-%m-%d')
