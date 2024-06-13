@@ -5,6 +5,12 @@ import sys
 import shapely.geometry
 import sqlite_utils
 import shapely
+from datetime import datetime
+import sqlite3
+
+
+def get_today():
+    return datetime.today().strftime('%Y-%m-%d')
 
 Base = 'https://user.govoutreach.com/newtoncityma/rest.php'
 PrecinctUrl = 'https://raw.githubusercontent.com/NewtonMAGIS/GISData/master/Wards%20and%20Precincts/Precincts.geojson'
@@ -57,34 +63,75 @@ def get_locations(id):
         if x['locationCoord']:
             longitude, latitude = [float(i) for i in x['locationCoord'].split(',')]
             if is_location_in_newton(latitude, longitude):
-                ret['latitude'] = latitude
-                ret['longitude'] = longitude
+                ret['latitude'] = round(latitude, 6)
+                ret['longitude'] = round(longitude, 6)
 
         yield ret
 
 
 if __name__ == '__main__':
     precinct_info = get_precincts()
-    db = sqlite_utils.Database(sys.argv[1], recreate=True)
+    db = sqlite_utils.Database(sys.argv[1])
     categories = get_all_categories()
-    db['categories'].insert_all(categories, pk='id')
-    
+
+    # if new categories are included, just store them
+    db['categories'].insert_all(categories, pk='id', ignore=True)
+
+    # added, removed, unchanged
+    # added: in the new locations, not current in the db / set new locations to current and set added time
+    # removed: not in the new locations, current in the db / for existing records, unset current, set removed time
+    # unchanged in the new locations and current in the db / do nothing (don't insert or modify)
     for category in categories:
         locations = list(get_locations(category['id']))
         for el in locations:
+            el['location'] = ' '.join(el['location'].upper().split()) # clean up location
             el['category_id'] = category['id']
             el['ward'] = get_ward(el['longitude'], el['latitude'], precinct_info)
-        db['_locations'].insert_all(locations, foreign_keys=[['category_id', 'categories', 'id']])
+            el['added'] = get_today()
+            el['removed'] = ""
+            el['active'] = 1
 
+        # query for active locations in the category
+        if db['_locations'].exists():
+            current_locations = list(db.query("""select rowid, * from _locations 
+                                        where active = 1 AND 
+                                        category_id = ?""", [category['id']]))
+            
+            current_locations_index = {(e['location'], e['category_id']): e for e in current_locations}
+            new_locations_index = {(e['location'], e['category_id']): e for e in locations}
+
+            added_keys = set(new_locations_index.keys()) - set(current_locations_index.keys())
+            removed_keys = set(current_locations_index.keys()) - set(new_locations_index.keys())
+
+            added_locations = [v for k,v in new_locations_index.items() if k in added_keys]
+            removed_locations = [v for k,v in current_locations_index.items() if k in removed_keys]
+            for loc in removed_locations:
+                loc['removed'] = get_today()
+                loc['active'] = 0
+
+            db['_locations'].insert_all(added_locations, foreign_keys=[['category_id', 'categories', 'id']])
+            db['_locations'].upsert_all(removed_locations, pk='rowid')
+
+        else:
+            db['_locations'].insert_all(locations, foreign_keys=[['category_id', 'categories', 'id']])
+
+    db['locations'].drop(ignore=True)
     db.execute("""
                    create table locations as select 
                    location, 
                    ward,
-                   label as category,
+                   categories.label as category,
                    category_id, 
+                   (case when active = 1 then 'active' else '' end) as active,
+                   added,
+                   removed,
                    latitude, longitude 
                    from _locations join categories
                    on category_id = id
                           """)
     db['locations'].add_foreign_key('category_id', 'categories', 'id')
-    db["locations"].enable_fts(['location', 'category'])
+
+    if db['locations'].detect_fts():
+        db['locations'].disable_fts()
+
+    db["locations"].enable_fts(['location', 'category', 'active', 'added', 'removed'])
