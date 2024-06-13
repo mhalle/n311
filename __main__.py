@@ -75,6 +75,8 @@ if __name__ == '__main__':
     # if new categories are included, just store them
     db['categories'].insert_all(categories, pk='id', ignore=True)
 
+    newdb = db['_locations'].exists()
+
     # added, removed, unchanged
     # added: in the new locations, not current in the db / set new locations to current and set added time
     # removed: not in the new locations, current in the db / for existing records, unset current, set removed time
@@ -89,8 +91,8 @@ if __name__ == '__main__':
             el['removed'] = ""
             el['active'] = 1
 
+        if newdb:
         # query for active locations in the category
-        if db['_locations'].exists():
             current_locations = list(db.query("""select rowid, * from _locations 
                                         where active = 1 AND 
                                         category_id = ?""", [category['id']]))
