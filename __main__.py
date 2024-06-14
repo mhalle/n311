@@ -6,9 +6,10 @@ import shapely.geometry
 import sqlite_utils
 import shapely
 from datetime import datetime
+import pytz
 
 def get_today():
-    return datetime.today().strftime('%Y-%m-%d')
+    return datetime.now(pytz.timezone('US/Eastern')).strftime('%Y-%m-%d')
 
 Base = 'https://user.govoutreach.com/newtoncityma/rest.php'
 PrecinctUrl = 'https://raw.githubusercontent.com/NewtonMAGIS/GISData/master/Wards%20and%20Precincts/Precincts.geojson'
@@ -141,4 +142,3 @@ if __name__ == '__main__':
 
     db["requests"].enable_fts(['location', 'category', 'active', 'added', 'removed', 'ward'])
     db['requests'].create_index(['ward', 'category', 'category_id', 'active', 'added', 'removed'])
-    
