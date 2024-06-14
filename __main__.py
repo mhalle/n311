@@ -140,3 +140,5 @@ if __name__ == '__main__':
         db['requests'].disable_fts()
 
     db["requests"].enable_fts(['location', 'category', 'active', 'added', 'removed', 'ward'])
+    db['requests'].create_index(['ward', 'category', 'category_id', 'active', 'added', 'removed'])
+    
