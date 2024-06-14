@@ -119,9 +119,10 @@ if __name__ == '__main__':
             # new database
             db['_locations'].insert_all(locations, foreign_keys=[['category_id', 'categories', 'id']])
 
-    db['locations'].drop(ignore=True)
+    db['locations'].drop(ignore=True) # legacy
+    db['requests'].drop(ignore=True)
     db.execute("""
-                   create table locations as select 
+                   create table requests as select 
                    location, 
                    ('ward-' || ward) as ward,
                    categories.label as category,
@@ -133,9 +134,9 @@ if __name__ == '__main__':
                    from _locations join categories
                    on category_id = id
                           """)
-    db['locations'].add_foreign_key('category_id', 'categories', 'id')
+    db['requests'].add_foreign_key('category_id', 'categories', 'id')
 
-    if db['locations'].detect_fts():
-        db['locations'].disable_fts()
+    if db['requests'].detect_fts():
+        db['requests'].disable_fts()
 
-    db["locations"].enable_fts(['location', 'category', 'active', 'added', 'removed', 'ward'])
+    db["requests"].enable_fts(['location', 'category', 'active', 'added', 'removed', 'ward'])
