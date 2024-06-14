@@ -123,10 +123,10 @@ if __name__ == '__main__':
     db.execute("""
                    create table locations as select 
                    location, 
-                   ward,
+                   ('ward-' || ward) as ward,
                    categories.label as category,
                    category_id, 
-                   (case when active = 1 then 'active' else '' end) as active,
+                   (case when active = 1 then 'active' else 'inactive' end) as active,
                    added,
                    removed,
                    latitude, longitude 
@@ -138,4 +138,4 @@ if __name__ == '__main__':
     if db['locations'].detect_fts():
         db['locations'].disable_fts()
 
-    db["locations"].enable_fts(['location', 'category', 'active', 'added', 'removed'])
+    db["locations"].enable_fts(['location', 'category', 'active', 'added', 'removed', 'ward'])
