@@ -7,11 +7,15 @@ import sqlite_utils
 import shapely
 from datetime import datetime
 import pytz
+import bs4
+
+# https://user.govoutreach.com/newtoncityma/rest.php?cmd=requesttypeinfopick&id=51088
 
 def get_today():
     return datetime.now(pytz.timezone('US/Eastern')).strftime('%Y-%m-%d')
 
-Base = 'https://user.govoutreach.com/newtoncityma/rest.php'
+ParamsUrl = 'https://user.govoutreach.com/newtoncityma/support.php?goparms=cmd%3Dshell'
+BaseUrl = 'https://user.govoutreach.com/newtoncityma/rest.php'
 PrecinctUrl = 'https://raw.githubusercontent.com/NewtonMAGIS/GISData/master/Wards%20and%20Precincts/Precincts.geojson'
 
 
@@ -32,15 +36,16 @@ def get_ward(longitude, latitude, precinct_info):
             return ward
     return None
 
-
 def get_all_categories():
-    all_items = {}
-    for vowel in 'aeiou':
-        items = httpx.get(Base, params = dict(cmd='searchtopics', term=vowel)).json()
-        for item in items:
-            all_items[item['id']] = item
+    page = httpx.get(ParamsUrl).text
+    soup = bs4.BeautifulSoup(page, features="html.parser")
+    divs = soup.find_all('div', {'data-topicid': True})
+    for div in divs:
+        id = div['data-topicid']
+        label = div.find(class_='topicname').text
+        description = div.find(class_='topicdescription').text
 
-    return all_items.values()
+        yield(dict(id=id, label=label, value=id, description=description))
 
 def is_location_in_newton(latitude, longitude):
     bbox = [
@@ -52,7 +57,7 @@ def is_location_in_newton(latitude, longitude):
     return (bbox[0] < longitude < bbox[2]) and (bbox[1] < latitude < bbox[3])
 
 def get_locations(id):
-    items = httpx.get(Base, params = dict(cmd='samerequests', cid=str(id))).json()
+    items = httpx.get(BaseUrl, params = dict(cmd='samerequests', cid=str(id))).json()
     for x in items:
         ret = { 
                 'location': x['location'],
@@ -71,7 +76,13 @@ def get_locations(id):
 if __name__ == '__main__':
     precinct_info = get_precincts()
     db = sqlite_utils.Database(sys.argv[1])
-    categories = get_all_categories()
+    categories = list(get_all_categories())
+
+    if db['categories'].exists():
+        # get existing categories
+        existing_categories = set(category['id'] for category in db.query('select id from categories'))
+    else:
+        existing_categories = set()
 
     # if new categories are included, just store them
     db['categories'].insert_all(categories, pk='id', ignore=True)
@@ -83,6 +94,8 @@ if __name__ == '__main__':
     # removed: not in the new locations, current in the db / for existing records, unset current, set removed time
     # unchanged in the new locations and current in the db / do nothing (don't insert or modify)
     for category in categories:
+        existing_category = (category['id'] in existing_categories)
+            
         locations = list(get_locations(category['id']))
         for el in locations:
             el['location'] = ' '.join(el['location'].upper().split()) # clean up location
@@ -105,8 +118,10 @@ if __name__ == '__main__':
             removed_keys = set(current_locations_index.keys()) - set(new_locations_index.keys())
 
             added_locations = [v for k,v in new_locations_index.items() if k in added_keys]
-            for el in added_locations:
-                el['added'] = get_today()
+
+            if existing_category:
+                for el in added_locations:
+                    el['added'] = get_today()
 
             removed_locations = [v for k,v in current_locations_index.items() if k in removed_keys]
             for loc in removed_locations:
