@@ -9,10 +9,21 @@ from datetime import datetime
 import pytz
 import bs4
 
+MinutesToRound = 15
+
+def round_time_to_nearest_n_minutes(dt, n):
+    minutes = dt.minute
+    rounded_minutes = (minutes // n) * n
+    if minutes % n >= float(n)/2:
+        rounded_minutes += n
+    return dt.replace(minute=rounded_minutes, second=0, microsecond=0)
+
 # https://user.govoutreach.com/newtoncityma/rest.php?cmd=requesttypeinfopick&id=51088
 
-def get_today():
-    return datetime.now(pytz.timezone('US/Eastern')).strftime('%Y-%m-%d')
+def get_today(include_time=False):
+    dateformat = '%Y-%m-%d %H:%M' if include_time else '%Y-%m-%d'
+    return round_time_to_nearest_n_minutes(datetime.now(pytz.timezone('US/Eastern'))
+                                           , MinutesToRound).strftime(dateformat)
 
 ParamsUrl = 'https://user.govoutreach.com/newtoncityma/support.php?goparms=cmd%3Dshell'
 BaseUrl = 'https://user.govoutreach.com/newtoncityma/rest.php'
@@ -121,11 +132,11 @@ if __name__ == '__main__':
 
             if existing_category:
                 for el in added_locations:
-                    el['added'] = get_today()
+                    el['added'] = get_today(include_time=True)
 
             removed_locations = [v for k,v in current_locations_index.items() if k in removed_keys]
             for loc in removed_locations:
-                loc['removed'] = get_today()
+                loc['removed'] = get_today(include_time=False)
                 loc['active'] = 0
 
             db['_locations'].insert_all(added_locations, foreign_keys=[['category_id', 'categories', 'id']])
